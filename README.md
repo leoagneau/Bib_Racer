@@ -4,3 +4,4 @@ This project is trying to detect the bib numbers from race photos of a sports ac
 
 1. [Scrape Images](https://www.vitaarca.net/post/tech/bib-racer-01-scrape-images/)
 2. [Train and test a YOLOv3 model with RBNR dataset](https://www.vitaarca.net/post/tech/bib-racer-02-prepare-rbnr-data-for-yolo/)
+3. [Face and Bib Detection with YOLO network](https://www.vitaarca.net/post/tech/bib-racer-03-custom-object-detection/)
