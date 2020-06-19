@@ -13,14 +13,14 @@ from operator import add
 
 ### Get number of total instances in digitStruct.mat
 def get_instances_num(f):
-    return f['digitStruct/names'].shape[0]
+    return f['digitStruct/name'].shape[0]
 
 
 ### Get filename from index
 # https://stackoverflow.com/questions/41176258/h5py-access-data-in-datasets-in-svhn
 # https://stackoverflow.com/a/56388672/3243870
 def get_img_name(f, idx=0):
-    names = f['digitStruct/names']
+    names = f['digitStruct/name']
     img_name = ''.join(map(chr, f[names[idx][0]][()].flatten()))
     return img_name
 
@@ -30,11 +30,13 @@ def get_img_name(f, idx=0):
 bbox_prop = ['height', 'left', 'top', 'width', 'label']
 def get_img_boxes(f, idx=0):
     """
-    Get the 'height', 'left', 'top', 'width', 'label' of bounding boxes of an image
+    Get the 'height', 'left', 'top', 'width', 'label' of bounding boxes of an image.
+
     :param f: h5py.File
-    :param idx: index of the image
-    :return: dictionary
+    :param idx: index of the image in the h5py file
+    :return: a dictionary contains properties of the bounding boxes
     """
+
     meta = {key: [] for key in bbox_prop}
     bboxs = f['digitStruct/bbox']
 
@@ -51,11 +53,13 @@ def get_img_boxes(f, idx=0):
 
 def merge_bbox(f, idx=0):
     """
-    Return a bounding box that includes all the individual bounding boxes of an image
+    Return a bounding box that circumscribes all the individual bounding boxes of an image.
+
     :param f: h5py.File
     :param idx: index of the image
-    :return: dictionary contains the properties of the bounding box
+    :return: a dictionary contains the properties of the circumscribing bounding box.
     """
+
     meta = get_img_boxes(f, idx)
     # print(meta)
     left = min(meta['left'])
@@ -74,11 +78,13 @@ def save_object(obj, filename):
 
 def process_digitStruct(f):
     """
-    Merge all the individual bounding boxes of each image in the dataset
+    Merge all the individual bounding boxes of each image in the dataset.
+
     :param f: h5py.File
-    :return: a dictionary where the key is file name and value is the properties
-    of the corresponding bounding box
+    :return: a dictionary where key is file name and value is a dict contains properties
+        of the corresponding bounding box
     """
+
     data = {}
     num_items = get_instances_num(f)
     for idx in range(num_items):
