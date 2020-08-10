@@ -11,16 +11,16 @@ import random
 from operator import add
 
 
-### Get number of total instances in digitStruct.mat
+### Get the number of total instances in digitStruct.mat
 def get_instances_num(f):
-    return f['digitStruct/names'].shape[0]
+    return f['digitStruct/name'].shape[0]
 
 
 ### Get filename from index
 # https://stackoverflow.com/questions/41176258/h5py-access-data-in-datasets-in-svhn
 # https://stackoverflow.com/a/56388672/3243870
 def get_img_name(f, idx=0):
-    names = f['digitStruct/names']
+    names = f['digitStruct/name']
     img_name = ''.join(map(chr, f[names[idx][0]][()].flatten()))
     return img_name
 

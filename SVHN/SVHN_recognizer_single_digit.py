@@ -182,7 +182,7 @@ def main():
         ])
     }
 
-    SVHN_path = os.path.join(path, 'SVHN', 'mat')
+    SVHN_path = os.path.join(path, 'mat')
     SVHN = {x:datasets.SVHN(SVHN_path, split=x, transform=data_transforms[x]) for x in ['train', 'test']}
     dataloaders = {x: DataLoader(SVHN[x], batch_size=BS, shuffle=True, num_workers=4) for x in ['train', 'test']}
     dataset_sizes = {x: len(SVHN[x]) for x in ['train', 'test']}
