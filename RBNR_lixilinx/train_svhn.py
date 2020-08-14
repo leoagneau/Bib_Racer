@@ -1,3 +1,4 @@
+import os
 import random
 import pickle
 import time
@@ -9,50 +10,31 @@ import torch.nn.functional as F
 import preconditioned_stochastic_gradient_descent as psgd#download psgd from https://github.com/lixilinx/psgd_torch 
 import utilities as U
 
+class_num = 12
 # batch_size = 32
-batch_size = 2
+batch_size = 8
 lr = 0.01#will aneal learning_rate to 0.001, 0.0001
 # num_epochs = 21#about two days on 1080ti with model ks_5_dims_128_192_256 (7.5M coefficients)
 num_epochs = 1
 model_name = 'svhn_model_ks_5_dims_128_192_256'
 enable_dropout = False #our model is small (compared with others for this task), dropout may not be very helpful or may need more epochs to train
-train_from_sketch = True
+train_from_sketch = False
 pre_check_svhn_reading = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# I prepared these mat files with matlab/octave; you may download them from https://drive.google.com/drive/folders/1BvVpUw3OY3RtkJo-bfujwBsa0y6e49lZ
-train_images, train_labels = U.read_svhn_mat('./svhn/train.mat')
+# Read bib images and labels
+train_path = os.path.join(os.getcwd(), 'images', 'train')
+train_images, train_labels = U.read_rbnr(train_path)
 len_train = len(train_images)
 rp = np.random.permutation(len_train)
 train_images = train_images[rp]
 train_labels = train_labels[rp]
 
-extra1_images, extra1_labels = U.read_svhn_mat('./svhn/extra_part1.mat')
-len_extra1 = len(extra1_images)
-rp = np.random.permutation(len_extra1)
-extra1_images = extra1_images[rp]
-extra1_labels = extra1_labels[rp]
-
-extra2_images, extra2_labels = U.read_svhn_mat('./svhn/extra_part2.mat')
-len_extra2 = len(extra2_images)
-rp = np.random.permutation(len_extra2)
-extra2_images = extra2_images[rp]
-extra2_labels = extra2_labels[rp]
 
 def get_batch():#read training data; do some augumentations
-    choice = random.randint(0,2)
-    if choice==0:
-        i = random.randint(0, len_train - batch_size)
-        images = train_images[i:i+batch_size]
-        labels = train_labels[i:i+batch_size]
-    elif choice==1:
-        i = random.randint(0, len_extra1 - batch_size)
-        images = extra1_images[i:i+batch_size]
-        labels = extra1_labels[i:i+batch_size] 
-    else:
-        i = random.randint(0, len_extra2 - batch_size)
-        images = extra2_images[i:i+batch_size]
-        labels = extra2_labels[i:i+batch_size]    
+    i = random.randint(0, len_train - batch_size)
+    images = train_images[i:i+batch_size]
+    labels = train_labels[i:i+batch_size]
         
     i, j = random.randint(0, 4), random.randint(0, 4)
     images = images[:,:, i:i+60, j:j+60]
@@ -88,13 +70,16 @@ if train_from_sketch:
     W8 = torch.tensor(torch.randn(dim3*ks*ks+1, dim3)/(dim3*ks*ks)**0.5, requires_grad=True, device=device)
     W9 = torch.tensor(torch.randn(dim3*ks*ks+1, dim3)/(dim3*ks*ks)**0.5, requires_grad=True, device=device)
     # detection layer
-    W10 =torch.tensor(torch.randn(dim3*ks*ks+1, 10+1)/(dim3*ks*ks)**0.5, requires_grad=True, device=device)
+    W10 =torch.tensor(torch.randn(dim3*ks*ks+1, class_num+1)/(dim3*ks*ks)**0.5, requires_grad=True, device=device)
 else:
     with open(model_name, 'rb') as f:
         Ws = pickle.load(f)
         W1,W2,W3,W4,W5,W6,W7,W8,W9,W10 = Ws
         ks, dim1, dim2, dim3 = int((W3.shape[0]/W3.shape[1])**0.5), W3.shape[1], W6.shape[1], W9.shape[1]
         dim0 = 3#RGB images
+        extra_label_weights = torch.rand(W10.shape[0], class_num-W10.shape[1]+1, device=device)
+        W10 = torch.cat((W10,extra_label_weights), dim=1)
+
 # CNN model
 def model(x): 
     x = F.leaky_relu(F.conv2d(x, W1[:-1].view(dim1,dim0,ks,ks), bias=W1[-1], padding=ks//2), negative_slope=0.1)
@@ -115,7 +100,7 @@ def model(x):
     if enable_dropout:
         x = 2*torch.bernoulli(torch.rand(x.shape,device=device))*x
     #print(x.shape)
-    x = F.conv2d(x, W10[:-1].view(10+1,dim3,ks,ks), bias=W10[-1])
+    x = F.conv2d(x, W10[:-1].view(class_num+1,dim3,ks,ks), bias=W10[-1])
     #print(x.shape)
     return x
 
@@ -127,7 +112,8 @@ def train_loss(images, labels):
         loss -= U.log_prb_labels(y[i], labels[i])    
     return loss/y.shape[0]/y.shape[2]/y.shape[3]
 
-test_images, test_labels = U.read_svhn_mat('./svhn/test.mat')
+test_path = os.path.join(os.getcwd(), 'images', 'test')
+test_images, test_labels = U.read_rbnr(test_path)
 def test_loss():    
     num_errors = 0
     with torch.no_grad():
@@ -138,10 +124,10 @@ def test_loss():
             transcribed_result = []#the current transcription method is too coarse
             last_detected_label = -1
             for j in range(y.shape[2]):
-                hist = np.zeros(10)
+                hist = np.zeros(class_num)
                 for i in range(y.shape[1]):
                     _, label = torch.max(y[:,i,j], dim=0)
-                    if label < 10:                   
+                    if label < class_num:
                         hist[label.item()] += 1
                         
                 if max(hist)>0:# one digit is detected
@@ -164,7 +150,7 @@ grad_norm_clip_thr = 0.05*sum(W.shape[0]*W.shape[1] for W in Ws)**0.5
 TrainLoss, TestLoss, BestTestLoss = [], [], 1e30
 t0 = time.time()
 for epoch in range(num_epochs):
-    for num_iter in range(int((len_train+len_extra1+len_extra2)/batch_size)):
+    for num_iter in range(int(len_train/batch_size)):
         images, labels = get_batch()
             
         new_images = torch.tensor(images/256, dtype=torch.float, device=device)

@@ -197,3 +197,26 @@ def read_svhn_mat(file):
         labels.append(label)
     return images, np.array(labels)
 
+from matplotlib import pyplot as plt
+import fnmatch
+import os
+
+def read_rbnr(path):
+    files = [f for f in os.scandir(path) if fnmatch.fnmatch(f, '*.jpg')]
+    images = np.array([np.array(plt.imread(fname.path)) for fname in files])
+    images = np.transpose(images, [0, 3, 1, 2])
+    with open(os.path.join(path, "bib_labels.txt")) as f:
+        bib_numbers = f.read().split('\n')
+        labels = []
+        for bib_label in bib_numbers:
+            label = []
+            for l in bib_label:
+               if l == 'S':
+                   label.append(10)
+               elif l == 'T':
+                   label.append(11)
+               else:
+                   label.append(int(l))
+            labels.append(label)
+    # labels = [list(bib_label) for bib_label in bib_numbers]
+    return images, np.array(labels)
